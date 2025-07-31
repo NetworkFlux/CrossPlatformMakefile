@@ -11,10 +11,23 @@ SRC=$(wildcard $(SRC_DIR)/*.c)
 OBJ=$(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC))
 
 EXEC=$(BIN_DIR)/$(NAME)$(EXT)
-CC=x86_64-w64-mingw32-gcc
 CFLAGS=-Wall -Wextra -Werror
 
 # Platform Specific
+
+# Executable Name
+ifeq ($(OS), Windows_NT)
+	CC=x86_64-w64-mingw32-gcc
+else
+	CC=gcc
+endif
+
+# Compiler
+ifeq ($(OS), Windows_NT)
+	CC=x86_64-w64-mingw32-gcc
+else
+	CC=gcc
+endif
 
 # Executable Name
 ifeq ($(OS),Windows_NT)
@@ -42,33 +55,33 @@ all: dir_structure $(EXEC)
 
 dir_structure:
 	@echo Creating project structure
-	@echo 	Creating $(OBJ_DIR) directory
+	@echo ----creating $(OBJ_DIR) directory
 	@$(call MKDIR_P,$(OBJ_DIR))
-	@echo 	Creating $(BIN_DIR) directory
+	@echo ----creating $(BIN_DIR) directory
 	@$(call MKDIR_P,$(BIN_DIR))
 
 # Link the executable
 $(EXEC): $(OBJ)
 	@echo Linking .o files
-	@echo 	linking $^ ...
+	@echo ----linking $^ ...
 	@$(CC) $(CFLAGS) $^ -o $@
 
 # Compile each .c to .o in obj/
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo Compiling .c files
-	@echo 	compiling $^ ...
+	@echo ----compiling $^ ...
 	@$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
 
 clean:
 	@echo Cleaning project
-	@echo 	Removing $(OBJ_DIR) directory
+	@echo ----removing $(OBJ_DIR) directory
 	@$(call RMDIR_P,$(OBJ_DIR))
 
 fclean:
 	@echo Fully cleaning project
-	@echo 	Removing $(OBJ_DIR) directory
+	@echo ----removing $(OBJ_DIR) directory
 	@$(call RMDIR_P,$(OBJ_DIR))
-	@echo 	Removing $(BIN_DIR) directory
+	@echo ----removing $(BIN_DIR) directory
 	@$(call RMDIR_P,$(BIN_DIR))
 
 re: fclean all
