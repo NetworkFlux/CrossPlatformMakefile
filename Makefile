@@ -19,8 +19,14 @@ BIN_DIR = bin
 LIB_DIR = lib
 DOC_DIR = docs
 
+OBJ_EXT=o
+
+# Windows Compiler - gcc, cl ? (don't change if not using Windows)
+WIN_CC=
+WIN_LIB_NAME=User32
+
 # 📦 Libraries to link (names only, no prefix or extension)
-LIBS = -lstaticlib -ldynamiclib
+LIB_NAME = staticlib dynamiclib
 
 # ⚙️ Additional compiler flags
 CFLAGS = -Wall -Wextra -Werror
@@ -39,6 +45,10 @@ ifeq ($(OS),Windows_NT)
 	EXT = .exe
 	MKDIR_P = if not exist "$(1)" mkdir "$(1)"
 	RMDIR_P = if exist "$(1)" rmdir /S /Q "$(1)"
+	ifeq ($(WIN_CC),cl)
+		OBJ_EXT=obj
+		CFLAGS=/W4 /WX
+	endif
 else
 	CC = gcc
 	EXT =
@@ -53,7 +63,7 @@ EXEC = $(BIN_DIR)/$(NAME)$(EXT)
 SRC = $(wildcard $(SRC_DIR)/*.c)
 
 # 🧱 Generate corresponding .o file names
-OBJ = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRC))
+OBJ = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.$(OBJ_EXT),$(SRC))
 
 
 # =======================================================
@@ -77,8 +87,25 @@ LIB_LIB_DIRS := $(LIB_DIR) \
 	$(wildcard $(LIB_DIR)/*) \
 	$(wildcard $(LIB_DIR)/*/*)
 
+LIB_LIB_FILES := $(LIB_DIR)/*.lib \
+	$(wildcard $(LIB_DIR)/*/lib/*.lib) \
+	$(wildcard $(LIB_DIR)/*/*/lib/*.lib) \
+	$(wildcard $(LIB_DIR)/*/*.lib) \
+	$(wildcard $(LIB_DIR)/*/*/*.lib)
+
+ifeq ($(WIN_CC),cl)
+	LIBS=$(LIB_LIB_FILES)
+	LIBS+=$(foreach lib,$(WIN_LIB_NAME),$(lib).lib)
+else
+	LIBS=$(foreach lib,$(LIB_NAME),-l$(lib))
+endif
+
 # 🔗 Add lib dirs to LDFLAGS
-LDFLAGS += $(foreach dir,$(LIB_LIB_DIRS),-L$(dir))
+ifeq ($(WIN_CC),cl)
+	LDFLAGS += $(foreach dir,$(dir $(LIB_LIB_FILES)),/LIBPATH:$(dir))
+else
+	LDFLAGS += $(foreach dir,$(LIB_LIB_DIRS),-L$(dir))
+endif
 
 # 📥 DLL files to copy
 DLL_FILES := $(wildcard $(LIB_DIR)/*.dll) \
@@ -91,11 +118,11 @@ DLL_FILES := $(wildcard $(LIB_DIR)/*.dll) \
 # =====================
 
 # 🧱 Build everything
-all: dir_structure $(EXEC) copy_dlls
+all: project_structure $(EXEC) copy_dlls
 	@echo ✅ Project built!
 
 # 📁 Create needed folders
-dir_structure:
+project_structure:
 	@echo 📂 Creating folders
 	@$(call MKDIR_P,$(OBJ_DIR))
 	@$(call MKDIR_P,$(BIN_DIR))
@@ -104,7 +131,11 @@ dir_structure:
 # 🔗 Link object files into executable
 $(EXEC): $(OBJ)
 	@echo 🔗 Linking...
+ifeq ($(WIN_CC),cl)
+	@$(WIN_CC) $(CFLAGS) $^ /link $(LDFLAGS) /OUT:$@ $(LIBS)
+else
 	@$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ $(LIBS)
+endif
 
 # 📤 Copy DLLs to bin/ (Windows only)
 copy_dlls:
@@ -116,9 +147,13 @@ else
 endif
 
 # 🧱 Compile .c to .o
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+$(OBJ_DIR)/%.$(OBJ_EXT): $(SRC_DIR)/%.c
 	@echo 🧪 Compiling $<
+ifeq ($(WIN_CC),cl)
+	@$(WIN_CC) $(CFLAGS) /c $< /Fo:$@
+else
 	@$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
+endif
 
 # 🧹 Clean object files
 clean:
